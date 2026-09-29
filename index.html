@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="STUDY">
+  <title>STUDY TIMER</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <style>
+    :root {
+      --bg: #111111;
+      --fg: #f4f4f4;
+      --muted: #8d8d8d;
+      --line: #2a2a2a;
+      --green: #32d74b;
+      --red: #ff453a;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100dvh;
+      padding:
+        calc(env(safe-area-inset-top, 0px) + 28px)
+        calc(env(safe-area-inset-right, 0px) + 24px)
+        calc(env(safe-area-inset-bottom, 0px) + 16px)
+        calc(env(safe-area-inset-left, 0px) + 24px);
+    }
+
+    .app {
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 44px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      text-align: center;
+      letter-spacing: 0.42em;
+      font-size: 13px;
+      font-weight: 700;
+      color: #cfcfcf;
+    }
+
+    .field { margin-top: 28px; }
+
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    select {
+      width: 100%;
+      appearance: none;
+      background: #1c1c1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238d8d8d' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 14px center;
+      color: var(--fg);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 40px 14px 14px;
+      font-size: 16px;
+    }
+
+    .timer {
+      margin-top: 36px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 56px;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+
+    .state {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: 0.22em;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .state.studying { color: var(--green); }
+    .state.studying .dot {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+      padding: 28px 0;
+    }
+
+    .round-btn {
+      width: 168px;
+      height: 168px;
+      border: 0;
+      border-radius: 50%;
+      background: #1f1f1f;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+    }
+
+    .round-btn.start {
+      color: var(--green);
+      box-shadow: inset 0 0 0 10px #1f3d24, 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .round-btn.stop {
+      color: var(--red);
+      box-shadow: inset 0 0 0 10px #3d1f1f, 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .today {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 8px 0 18px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .today strong {
+      color: var(--fg);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      font-size: 18px;
+    }
+
+    .recent-title {
+      margin-top: 18px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .recent {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 72px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      font-variant-numeric: tabular-nums;
+      font-size: 15px;
+    }
+
+    .row span:last-child { color: var(--muted); }
+    .empty { color: #555; font-size: 14px; }
+
+    .sync {
+      margin-top: auto;
+      padding-top: 24px;
+      text-align: center;
+      color: var(--muted);
+      letter-spacing: 0.16em;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="brand">STUDY</div>
+
+    <div class="field">
+      <div class="label">DEVICE</div>
+      <select id="device">
+        <option value="iPhone">iPhone</option>
+        <option value="iPad">iPad</option>
+        <option value="Mac">Mac</option>
+        <option value="PC">PC</option>
+      </select>
+    </div>
+
+    <div class="timer" id="timer">00:00:00</div>
+    <div class="state" id="status"><span class="dot"></span><span id="statusText">PAUSED</span></div>
+
+    <div class="center">
+      <button class="round-btn start" id="toggle" type="button">START</button>
+    </div>
+
+    <div class="today">
+      <span>今日の累計</span>
+      <strong id="todayTotal">00:00</strong>
+    </div>
+
+    <div class="recent-title">直近の記録</div>
+    <div class="recent" id="recent"></div>
+    <div class="sync" id="sync">OFFLINE</div>
+  </div>
+
+  <script>
+    const API_URL = "ここに後で設定";
+    const APP_NAME = "manual_study";
+    const DEVICES = ["iPhone", "iPad", "Mac", "PC"];
+
+    const timerEl = document.getElementById("timer");
+    const statusEl = document.getElementById("status");
+    const statusTextEl = document.getElementById("statusText");
+    const toggleEl = document.getElementById("toggle");
+    const deviceEl = document.getElementById("device");
+    const todayTotalEl = document.getElementById("todayTotal");
+    const recentEl = document.getElementById("recent");
+    const syncEl = document.getElementById("sync");
+
+    let db = null;
+    let state = {
+      device: "iPhone",
+      running: false,
+      startedAt: null,
+      startDevice: null
+    };
+    let sessions = [];
+    let pendingCount = 0;
+    let syncing = false;
+    let tickTimer = null;
+    let busy = false;
+
+    function apiConfigured() {
+      const url = String(API_URL || "").trim();
+      return url.startsWith("http://") || url.startsWith("https://");
+    }
+
+    function pad(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function formatHMS(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      return pad(h) + ":" + pad(m) + ":" + pad(s);
+    }
+
+    function formatHM(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      return pad(h) + ":" + pad(m);
+    }
+
+    function formatClock(date) {
+      return pad(date.getHours()) + ":" + pad(date.getMinutes());
+    }
+
+    function startOfToday(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    }
+
+    function overlapMs(start, end, rangeStart, rangeEnd) {
+      const from = Math.max(start, rangeStart);
+      const to = Math.min(end, rangeEnd);
+      return Math.max(0, to - from);
+    }
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open("study-timer", 1);
+        req.onupgradeneeded = () => {
+          const next = req.result;
+          if (!next.objectStoreNames.contains("kv")) next.createObjectStore("kv");
+          if (!next.objectStoreNames.contains("outbox")) {
+            next.createObjectStore("outbox", { keyPath: "id", autoIncrement: true });
+          }
+          if (!next.objectStoreNames.contains("sessions")) {
+            next.createObjectStore("sessions", { keyPath: "id", autoIncrement: true });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function requestToPromise(req) {
+      return new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function withStore(storeName, mode, fn) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, mode);
+        const store = tx.objectStore(storeName);
+        const req = fn(store);
+        const done = req ? requestToPromise(req) : Promise.resolve();
+        tx.oncomplete = () => done.then(resolve, reject);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function kvGet(key) {
+      return withStore("kv", "readonly", (store) => store.get(key));
+    }
+
+    async function kvSet(key, value) {
+      return withStore("kv", "readwrite", (store) => store.put(value, key));
+    }
+
+    async function saveState() {
+      await kvSet("state", {
+        device: state.device,
+        running: state.running,
+        startedAt: state.startedAt,
+        startDevice: state.startDevice
+      });
+    }
+
+    async function enqueueEvent(action, device, eventTime) {
+      const event = {
+        event_time: eventTime,
+        device: device,
+        app: APP_NAME,
+        action: action
+      };
+      await withStore("outbox", "readwrite", (store) => store.add(event));
+      await loadOutbox();
+      renderSync();
+    }
+
+    async function loadOutbox() {
+      const items = (await withStore("outbox", "readonly", (store) => store.getAll())) || [];
+      items.sort((a, b) => a.id - b.id);
+      pendingCount = items.length;
+      return items;
+    }
+
+    async function deleteOutbox(id) {
+      await withStore("outbox", "readwrite", (store) => store.delete(id));
+    }
+
+    async function loadSessions() {
+      const items = (await withStore("sessions", "readonly", (store) => store.getAll())) || [];
+      items.sort((a, b) => b.endMs - a.endMs);
+      sessions = items;
+    }
+
+    async function addSession(session) {
+      await withStore("sessions", "readwrite", (store) => store.add(session));
+      await loadSessions();
+    }
+
+    function elapsedMs() {
+      if (!state.running || !state.startedAt) return 0;
+      return Date.now() - new Date(state.startedAt).getTime();
+    }
+
+    function todayMs() {
+      const now = Date.now();
+      const todayStart = startOfToday(new Date());
+      let total = 0;
+      for (const session of sessions) {
+        total += overlapMs(session.startMs, session.endMs, todayStart, now);
+      }
+      if (state.running && state.startedAt) {
+        total += overlapMs(new Date(state.startedAt).getTime(), now, todayStart, now);
+      }
+      return total;
+    }
+
+    function renderTimer() {
+      timerEl.textContent = state.running ? formatHMS(elapsedMs()) : "00:00:00";
+      todayTotalEl.textContent = formatHM(todayMs());
+    }
+
+    function renderStatus() {
+      if (state.running) {
+        statusEl.className = "state studying";
+        statusTextEl.textContent = "STUDYING";
+        toggleEl.textContent = "STOP";
+        toggleEl.className = "round-btn stop";
+      } else {
+        statusEl.className = "state";
+        statusTextEl.textContent = "PAUSED";
+        toggleEl.textContent = "START";
+        toggleEl.className = "round-btn start";
+      }
+    }
+
+    function renderRecent() {
+      const latest = sessions.slice(0, 8);
+      if (!latest.length) {
+        recentEl.innerHTML = '<div class="empty">記録なし</div>';
+        return;
+      }
+      recentEl.innerHTML = latest.map((session) => {
+        const start = new Date(session.startMs);
+        const end = new Date(session.endMs);
+        const minutes = Math.ceil(session.durationMs / 60000);
+        return (
+          '<div class="row"><span>' +
+          formatClock(start) + " - " + formatClock(end) +
+          "</span><span>" + minutes + "分</span></div>"
+        );
+      }).join("");
+    }
+
+    function renderSync() {
+      if (syncing) {
+        syncEl.textContent = "SYNCING…";
+        return;
+      }
+      if (!navigator.onLine) {
+        syncEl.textContent = pendingCount > 0 ? "OFFLINE・未送信" + pendingCount + "件" : "OFFLINE";
+        return;
+      }
+      syncEl.textContent = pendingCount > 0 ? "未送信" + pendingCount + "件" : "ONLINE";
+    }
+
+    function startTicking() {
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = setInterval(renderTimer, 250);
+      renderTimer();
+    }
+
+    async function sendEvent(item) {
+      const payload = {
+        event_time: item.event_time,
+        device: item.device,
+        app: item.app,
+        action: item.action
+      };
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return response.ok;
+    }
+
+    async function syncOutbox() {
+      if (syncing) return;
+      if (!navigator.onLine || !apiConfigured()) {
+        renderSync();
+        return;
+      }
+
+      syncing = true;
+      renderSync();
+      try {
+        const items = await loadOutbox();
+        for (const item of items) {
+          const ok = await sendEvent(item);
+          if (!ok) break;
+          await deleteOutbox(item.id);
+        }
+        await loadOutbox();
+      } catch (err) {
+        await loadOutbox();
+      } finally {
+        syncing = false;
+        renderSync();
+      }
+    }
+
+    async function onStart() {
+      if (state.running || busy) return;
+      busy = true;
+      try {
+        const eventTime = new Date().toISOString();
+        const device = deviceEl.value;
+        await enqueueEvent("open", device, eventTime);
+        state.running = true;
+        state.startedAt = eventTime;
+        state.startDevice = device;
+        state.device = device;
+        await saveState();
+        renderStatus();
+        renderTimer();
+        syncOutbox();
+      } finally {
+        busy = false;
+      }
+    }
+
+    async function onStop() {
+      if (!state.running || !state.startedAt || busy) return;
+      busy = true;
+      try {
+        const eventTime = new Date().toISOString();
+        const startMs = new Date(state.startedAt).getTime();
+        const endMs = new Date(eventTime).getTime();
+        const device = state.startDevice || deviceEl.value;
+        await enqueueEvent("close", device, eventTime);
+        await addSession({
+          startMs: startMs,
+          endMs: endMs,
+          durationMs: Math.max(0, endMs - startMs),
+          device: device
+        });
+        state.running = false;
+        state.startedAt = null;
+        state.startDevice = null;
+        await saveState();
+        renderStatus();
+        renderTimer();
+        renderRecent();
+        syncOutbox();
+      } finally {
+        busy = false;
+      }
+    }
+
+    async function restore() {
+      const saved = await kvGet("state");
+      if (saved && DEVICES.includes(saved.device)) state.device = saved.device;
+      if (saved) {
+        state.running = Boolean(saved.running && saved.startedAt);
+        state.startedAt = state.running ? saved.startedAt : null;
+        state.startDevice = state.running ? saved.startDevice : null;
+      }
+      deviceEl.value = state.device;
+      await loadSessions();
+      await loadOutbox();
+      renderStatus();
+      renderRecent();
+      renderTimer();
+      renderSync();
+      startTicking();
+    }
+
+    toggleEl.addEventListener("click", () => {
+      if (state.running) onStop();
+      else onStart();
+    });
+
+    deviceEl.addEventListener("change", async () => {
+      state.device = deviceEl.value;
+      await saveState();
+    });
+
+    window.addEventListener("online", () => {
+      renderSync();
+      syncOutbox();
+    });
+    window.addEventListener("offline", renderSync);
+    document.addEventListener("visibilitychange", () => {
+      renderTimer();
+      if (document.visibilityState === "visible") syncOutbox();
+    });
+    window.addEventListener("focus", () => {
+      renderTimer();
+      syncOutbox();
+    });
+    window.addEventListener("pageshow", () => {
+      renderTimer();
+      syncOutbox();
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js");
+    }
+
+    openDb()
+      .then((opened) => {
+        db = opened;
+        return restore();
+      })
+      .then(() => syncOutbox())
+      .catch((err) => {
+        syncEl.textContent = "STORAGE ERROR";
+        console.error(err);
+      });
+  </script>
+</body>
+</html>
