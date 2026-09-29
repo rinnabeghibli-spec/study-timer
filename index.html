@@ -311,6 +311,14 @@
       return DEVICE_ALIASES[value] || DEVICE_ALIASES[lowerValue] || DEFAULT_DEVICE;
     }
 
+    function createEventId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+      const random = Math.random().toString(36).slice(2, 10);
+      return Date.now().toString(36) + "-" + random;
+    }
+
     function renderDeviceTabs() {
       for (const tab of deviceTabEls) {
         const active = tab.dataset.device === state.device;
@@ -385,6 +393,7 @@
 
     async function enqueueEvent(action, device, eventTime) {
       const event = {
+        event_id: createEventId(),
         event_time: eventTime,
         device: normalizeDevice(device),
         action: action
@@ -403,6 +412,10 @@
 
     async function deleteOutbox(id) {
       await withStore("outbox", "readwrite", (store) => store.delete(id));
+    }
+
+    async function saveOutboxItem(item) {
+      await withStore("outbox", "readwrite", (store) => store.put(item));
     }
 
     async function loadSessions() {
@@ -490,7 +503,12 @@
     }
 
     async function sendEvent(item) {
+      if (!item.event_id) {
+        item.event_id = createEventId();
+        await saveOutboxItem(item);
+      }
       const payload = {
+        event_id: item.event_id,
         event_time: item.event_time,
         device: normalizeDevice(item.device),
         action: item.action
