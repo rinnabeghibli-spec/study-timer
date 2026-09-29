@@ -68,15 +68,27 @@
       margin-bottom: 8px;
     }
 
-    select {
-      width: 100%;
-      appearance: none;
-      background: #1c1c1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238d8d8d' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 14px center;
-      color: var(--fg);
+    .device-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .device-tab {
+      min-height: 46px;
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 14px 40px 14px 14px;
-      font-size: 16px;
+      background: #1c1c1e;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .device-tab.active {
+      border-color: #4b4b4b;
+      background: #f4f4f4;
+      color: #111111;
     }
 
     .timer {
@@ -200,12 +212,12 @@
 
     <div class="field">
       <div class="label">DEVICE</div>
-      <select id="device">
-        <option value="iPhone">iPhone</option>
-        <option value="iPad">iPad</option>
-        <option value="Mac">Mac</option>
-        <option value="PC">PC</option>
-      </select>
+      <div class="device-tabs" id="deviceTabs" role="tablist" aria-label="DEVICE">
+        <button class="device-tab" type="button" role="tab" data-device="iphone">iphone</button>
+        <button class="device-tab" type="button" role="tab" data-device="ipad">ipad</button>
+        <button class="device-tab" type="button" role="tab" data-device="iphone 2">iphone 2</button>
+        <button class="device-tab" type="button" role="tab" data-device="ipad 2">ipad 2</button>
+      </div>
     </div>
 
     <div class="timer" id="timer">00:00:00</div>
@@ -227,20 +239,34 @@
 
   <script>
     const API_URL = "https://study-timer-api.rin-nabe-ghibli.workers.dev/";
-    const DEVICES = ["iPhone", "iPad", "Mac", "PC"];
+    const DEVICES = ["iphone", "ipad", "iphone 2", "ipad 2"];
+    const DEFAULT_DEVICE = DEVICES[0];
+    const DEVICE_ALIASES = {
+      "iphone": "iphone",
+      "ipad": "ipad",
+      "iphone 2": "iphone 2",
+      "iphone2": "iphone 2",
+      "ipad 2": "ipad 2",
+      "ipad2": "ipad 2",
+      "アイパッド": "ipad",
+      "1": "iphone 2",
+      "１": "iphone 2",
+      "2": "ipad 2",
+      "２": "ipad 2"
+    };
 
     const timerEl = document.getElementById("timer");
     const statusEl = document.getElementById("status");
     const statusTextEl = document.getElementById("statusText");
     const toggleEl = document.getElementById("toggle");
-    const deviceEl = document.getElementById("device");
+    const deviceTabEls = Array.from(document.querySelectorAll("[data-device]"));
     const todayTotalEl = document.getElementById("todayTotal");
     const recentEl = document.getElementById("recent");
     const syncEl = document.getElementById("sync");
 
     let db = null;
     let state = {
-      device: "iPhone",
+      device: DEFAULT_DEVICE,
       running: false,
       startedAt: null,
       startDevice: null
@@ -277,6 +303,21 @@
 
     function formatClock(date) {
       return pad(date.getHours()) + ":" + pad(date.getMinutes());
+    }
+
+    function normalizeDevice(device) {
+      const value = String(device || "").trim();
+      const lowerValue = value.toLowerCase();
+      return DEVICE_ALIASES[value] || DEVICE_ALIASES[lowerValue] || DEFAULT_DEVICE;
+    }
+
+    function renderDeviceTabs() {
+      for (const tab of deviceTabEls) {
+        const active = tab.dataset.device === state.device;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+        tab.tabIndex = active ? 0 : -1;
+      }
     }
 
     function startOfToday(date) {
@@ -335,17 +376,17 @@
 
     async function saveState() {
       await kvSet("state", {
-        device: state.device,
+        device: normalizeDevice(state.device),
         running: state.running,
         startedAt: state.startedAt,
-        startDevice: state.startDevice
+        startDevice: state.startDevice ? normalizeDevice(state.startDevice) : null
       });
     }
 
     async function enqueueEvent(action, device, eventTime) {
       const event = {
         event_time: eventTime,
-        device: device,
+        device: normalizeDevice(device),
         action: action
       };
       await withStore("outbox", "readwrite", (store) => store.add(event));
@@ -451,7 +492,7 @@
     async function sendEvent(item) {
       const payload = {
         event_time: item.event_time,
-        device: item.device,
+        device: normalizeDevice(item.device),
         action: item.action
       };
       const response = await fetch(API_URL, {
@@ -492,7 +533,7 @@
       busy = true;
       try {
         const eventTime = new Date().toISOString();
-        const device = deviceEl.value;
+        const device = normalizeDevice(state.device);
         await enqueueEvent("open", device, eventTime);
         state.running = true;
         state.startedAt = eventTime;
@@ -514,7 +555,7 @@
         const eventTime = new Date().toISOString();
         const startMs = new Date(state.startedAt).getTime();
         const endMs = new Date(eventTime).getTime();
-        const device = state.startDevice || deviceEl.value;
+        const device = normalizeDevice(state.startDevice || state.device);
         await enqueueEvent("close", device, eventTime);
         await addSession({
           startMs: startMs,
@@ -537,13 +578,13 @@
 
     async function restore() {
       const saved = await kvGet("state");
-      if (saved && DEVICES.includes(saved.device)) state.device = saved.device;
+      if (saved) state.device = normalizeDevice(saved.device);
       if (saved) {
         state.running = Boolean(saved.running && saved.startedAt);
         state.startedAt = state.running ? saved.startedAt : null;
-        state.startDevice = state.running ? saved.startDevice : null;
+        state.startDevice = state.running ? normalizeDevice(saved.startDevice || saved.device) : null;
       }
-      deviceEl.value = state.device;
+      renderDeviceTabs();
       await loadSessions();
       await loadOutbox();
       renderStatus();
@@ -558,10 +599,24 @@
       else onStart();
     });
 
-    deviceEl.addEventListener("change", async () => {
-      state.device = deviceEl.value;
-      await saveState();
-    });
+    for (const tab of deviceTabEls) {
+      tab.addEventListener("click", async () => {
+        state.device = normalizeDevice(tab.dataset.device);
+        renderDeviceTabs();
+        await saveState();
+      });
+      tab.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        event.preventDefault();
+        const current = deviceTabEls.indexOf(tab);
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const next = (current + offset + deviceTabEls.length) % deviceTabEls.length;
+        deviceTabEls[next].focus();
+        deviceTabEls[next].click();
+      });
+    }
+
+    renderDeviceTabs();
 
     window.addEventListener("online", () => {
       renderSync();
