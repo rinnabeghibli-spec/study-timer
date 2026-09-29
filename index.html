@@ -226,8 +226,7 @@
   </div>
 
   <script>
-    const API_URL = "ここに後で設定";
-    const APP_NAME = "manual_study";
+    const API_URL = "https://study-timer-api.rin-nabe-ghibli.workers.dev/";
     const DEVICES = ["iPhone", "iPad", "Mac", "PC"];
 
     const timerEl = document.getElementById("timer");
@@ -347,7 +346,6 @@
       const event = {
         event_time: eventTime,
         device: device,
-        app: APP_NAME,
         action: action
       };
       await withStore("outbox", "readwrite", (store) => store.add(event));
@@ -415,7 +413,7 @@
     }
 
     function renderRecent() {
-      const latest = sessions.slice(0, 8);
+      const latest = sessions.slice(0, 2);
       if (!latest.length) {
         recentEl.innerHTML = '<div class="empty">記録なし</div>';
         return;
@@ -454,12 +452,11 @@
       const payload = {
         event_time: item.event_time,
         device: item.device,
-        app: item.app,
         action: item.action
       };
       const response = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       return response.ok;
